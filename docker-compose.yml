@@ -1,0 +1,72 @@
+version: '3.9'
+
+services:
+  # ─── MySQL ──────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: dashboard_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE:      dashboard_analytics
+      MYSQL_USER:          dashboard_user
+      MYSQL_PASSWORD:      dashboard_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 10s
+      timeout:  5s
+      retries:  5
+      start_period: 30s
+    networks:
+      - dashboard_net
+
+  # ─── Backend Node.js ────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dashboard_backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      PORT:        3001
+      DB_HOST:     mysql
+      DB_PORT:     3306
+      DB_USER:     dashboard_user
+      DB_PASSWORD: dashboard_pass
+      DB_NAME:     dashboard_analytics
+      NODE_ENV:    production
+      FRONTEND_URL: http://localhost:5173
+    ports:
+      - "3001:3001"
+    networks:
+      - dashboard_net
+
+  # ─── Frontend React/Vite ────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: dashboard_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: http://localhost:3001
+    ports:
+      - "5173:80"
+    networks:
+      - dashboard_net
+
+volumes:
+  mysql_data:
+
+networks:
+  dashboard_net:
+    driver: bridge
