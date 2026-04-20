@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Layout    from './components/layout/Layout';
-import Dashboard from './pages/Dashboard';
-import Relatorios from './pages/Relatorios';
-import Exportar  from './pages/Exportar';
+import Layout       from './components/layout/Layout';
+import Dashboard    from './pages/Dashboard';
+import Relatorios   from './pages/Relatorios';
+import Exportar     from './pages/Exportar';
+import Lancamentos  from './pages/Lancamentos';
 import type { Filters } from './types';
 
 // Filtro padrão — últimos 30 dias, todas as categorias
@@ -71,8 +72,9 @@ export default function App() {
             index
             element={<Dashboard onMetricsUpdate={handleMetricsUpdate} />}
           />
-          <Route path="relatorios" element={<Relatorios />} />
-          <Route path="exportar"   element={<Exportar />}  />
+          <Route path="relatorios"  element={<Relatorios />}  />
+          <Route path="exportar"    element={<Exportar />}   />
+          <Route path="lancamentos" element={<Lancamentos />} />
         </Route>
       </Routes>
     </BrowserRouter>

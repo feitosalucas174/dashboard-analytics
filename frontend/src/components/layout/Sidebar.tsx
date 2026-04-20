@@ -5,6 +5,7 @@ import {
   Download,
   BarChart3,
   X,
+  Upload,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -13,9 +14,10 @@ interface SidebarProps {
 }
 
 const NAV_ITEMS = [
-  { to: '/',          icon: LayoutDashboard, label: 'Dashboard'  },
-  { to: '/relatorios',icon: FileText,        label: 'Relatórios' },
-  { to: '/exportar',  icon: Download,        label: 'Exportar'   },
+  { to: '/',            icon: LayoutDashboard, label: 'Dashboard'   },
+  { to: '/relatorios',  icon: FileText,        label: 'Relatórios'  },
+  { to: '/exportar',    icon: Download,        label: 'Exportar'    },
+  { to: '/lancamentos', icon: Upload,          label: 'Lançamentos', badge: 'MOCK' },
 ];
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
@@ -57,7 +59,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
         {/* Navegação */}
         <nav className="p-4 space-y-1">
-          {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
+          {NAV_ITEMS.map(({ to, icon: Icon, label, badge }) => (
             <NavLink
               key={to}
               to={to}
@@ -73,7 +75,12 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               `}
             >
               <Icon className="w-5 h-5 flex-shrink-0" />
-              {label}
+              <span className="flex-1">{label}</span>
+              {badge && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 tracking-wide">
+                  {badge}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>

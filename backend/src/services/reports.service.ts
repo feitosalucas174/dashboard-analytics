@@ -52,6 +52,9 @@ export async function getTableData(
   const totalPages = Math.ceil(total / limit);
 
   // Dados paginados com LAG para variação vs dia anterior
+  // LIMIT e OFFSET são interpolados diretamente pois são inteiros já validados —
+  // o driver mysql2 com prepared statements rejeita números JS em LIMIT/OFFSET
+  const orderCol = sortBy === 'category' ? 'c.name' : `m.${sortBy}`;
   const [rows] = await pool.execute<mysql.RowDataPacket[]>(
     `SELECT
        m.id,
@@ -67,9 +70,9 @@ export async function getTableData(
      FROM metrics m
      JOIN categories c ON c.id = m.category_id
      WHERE ${where}
-     ORDER BY ${sortBy === 'category' ? 'c.name' : `m.${sortBy}`} ${sortOrder}
-     LIMIT ? OFFSET ?`,
-    [...params, limit, offset]
+     ORDER BY ${orderCol} ${sortOrder}
+     LIMIT ${limit} OFFSET ${offset}`,
+    params
   );
 
   const data: TableRow[] = rows.map((r) => {

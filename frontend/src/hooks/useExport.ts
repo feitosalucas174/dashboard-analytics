@@ -48,7 +48,7 @@ export function useExport(filters: Filters) {
     showToast('Gerando Excel...', 'info');
     try {
       const data = await exportApi.getExcelData(params);
-      generateExcel(data);
+      await generateExcel(data);
       setStatus('success');
       showToast('Excel gerado com sucesso!', 'success');
     } catch (err) {

@@ -11,11 +11,11 @@ import type {
 import { formatTime } from '../utils/formatters';
 
 interface MetricsState {
-  kpis:         KPIData         | null;
-  timeline:     TimelinePoint[] | null;
+  kpis:         KPIData              | null;
+  timeline:     TimelinePoint[]      | null;
   distribution: CategoryDistribution[] | null;
-  comparison:   ComparisonPoint[] | null;
-  table:        TableResponse   | null;
+  comparison:   ComparisonPoint[]    | null;
+  table:        TableResponse        | null;
   loading:      boolean;
   error:        string | null;
   lastUpdated:  string | null;
@@ -29,7 +29,6 @@ interface TableParams {
   search:    string;
 }
 
-// Auto-refresh a cada 30 segundos
 const REFRESH_INTERVAL = 30_000;
 
 export function useMetrics(filters: Filters, tableParams: TableParams) {
@@ -51,7 +50,9 @@ export function useMetrics(filters: Filters, tableParams: TableParams) {
     };
 
     try {
-      const [kpis, timeline, distribution, comparison, table] = await Promise.all([
+      // Busca gráficos e tabela em paralelo, mas isola o erro da tabela
+      // para não cancelar KPIs/gráficos caso ela falhe
+      const [kpis, timeline, distribution, comparison, tableResult] = await Promise.all([
         metricsApi.getKPIs(params),
         metricsApi.getTimeline(params),
         metricsApi.getDistribution(params),
@@ -63,11 +64,12 @@ export function useMetrics(filters: Filters, tableParams: TableParams) {
           sortBy:    tableParams.sortBy,
           sortOrder: tableParams.sortOrder,
           search:    tableParams.search || undefined,
-        }),
+        }).catch(() => null),   // falha na tabela não derruba o restante
       ]);
 
       setState({
-        kpis, timeline, distribution, comparison, table,
+        kpis, timeline, distribution, comparison,
+        table:       tableResult,
         loading:     false,
         error:       null,
         lastUpdated: formatTime(new Date()),
@@ -81,12 +83,10 @@ export function useMetrics(filters: Filters, tableParams: TableParams) {
     }
   }, [filters, tableParams]);
 
-  // Busca inicial e ao mudar filtros
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
 
-  // Auto-refresh a cada 30s
   useEffect(() => {
     intervalRef.current = setInterval(fetchAll, REFRESH_INTERVAL);
     return () => {

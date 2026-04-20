@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   DollarSign, TrendingUp, ArrowUpDown, Calendar,
 } from 'lucide-react';
@@ -11,7 +11,7 @@ import PieChart  from '../components/charts/PieChart';
 import DataTable from '../components/table/DataTable';
 import { useFilters }  from '../hooks/useFilters';
 import { useMetrics }  from '../hooks/useMetrics';
-import { formatCurrency, formatNumber } from '../utils/formatters';
+import { formatCurrency } from '../utils/formatters';
 import type { SortConfig } from '../types';
 
 interface DashboardProps {
@@ -26,21 +26,25 @@ export default function Dashboard({ onMetricsUpdate }: DashboardProps) {
   const [tableSort, setTableSort]   = useState<SortConfig>({ column: 'date', direction: 'DESC' });
   const [tableSearch, setTableSearch] = useState('');
 
-  const tableParams = {
+  // useMemo garante referência estável — sem isso o useCallback do useMetrics
+  // recria fetchAll a cada render, causando loop infinito de requisições
+  const tableParams = useMemo(() => ({
     page:      tablePage,
     limit:     tableLimit,
     sortBy:    tableSort.column,
     sortOrder: tableSort.direction,
     search:    tableSearch,
-  };
+  }), [tablePage, tableLimit, tableSort.column, tableSort.direction, tableSearch]);
 
   const { kpis, timeline, distribution, comparison, table, loading, lastUpdated, refetch } =
     useMetrics(filters, tableParams);
 
-  // Expõe estado para o Layout (Header)
-  useState(() => {
+  // Sincroniza lastUpdated e loading com o Header via App.tsx
+  useEffect(() => {
     onMetricsUpdate({ lastUpdated, loading, refetch });
-  });
+  // onMetricsUpdate é useCallback estável; refetch muda só quando fetchAll muda
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastUpdated, loading]);
 
   const handleSort = (col: string) => {
     setTableSort((prev) => ({
