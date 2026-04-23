@@ -1,14 +1,19 @@
 import { useState, useCallback, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Layout       from './components/layout/Layout';
-import Dashboard    from './pages/Dashboard';
-import Relatorios   from './pages/Relatorios';
-import Exportar     from './pages/Exportar';
-import Lancamentos  from './pages/Lancamentos';
-import type { Filters } from './types';
+import Layout              from './components/layout/Layout';
+import Dashboard           from './pages/Dashboard';
+import Relatorios          from './pages/Relatorios';
+import Exportar            from './pages/Exportar';
+import Lancamentos         from './pages/Lancamentos';
+import Metas               from './pages/Metas';
+import Alertas             from './pages/Alertas';
+import Configuracoes       from './pages/Configuracoes';
+import KeyboardShortcutsModal from './components/ui/KeyboardShortcutsModal';
+import { useAlerts }       from './hooks/useAlerts';
+import { useKeyboard }     from './hooks/useKeyboard';
+import type { Filters }    from './types';
 
-// Filtro padrão — últimos 30 dias, todas as categorias
-const today = () => new Date().toISOString().split('T')[0];
+const today   = () => new Date().toISOString().split('T')[0];
 const daysAgo = (n: number) => {
   const d = new Date();
   d.setDate(d.getDate() - n);
@@ -22,8 +27,8 @@ const DEFAULT_FILTERS: Filters = {
   preset:     'last30',
 };
 
-export default function App() {
-  // Tema escuro como padrão — persiste no localStorage
+// ── Componente interno — pode usar hooks do React Router ──────
+function AppRoutes() {
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme');
     return saved ? saved === 'dark' : true;
@@ -34,10 +39,19 @@ export default function App() {
     localStorage.setItem('theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
 
-  // Estado compartilhado do header (atualizado pelo Dashboard)
-  const [lastUpdated, setLastUpdated]   = useState<string | null>(null);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [lastUpdated, setLastUpdated]     = useState<string | null>(null);
   const [metricsLoading, setMetricsLoading] = useState(false);
-  const [refetch, setRefetch]           = useState<() => void>(() => () => undefined);
+  const [refetch, setRefetch]             = useState<() => void>(() => () => undefined);
+  const [layoutFilters]                   = useState<Filters>(DEFAULT_FILTERS);
+
+  const { recentCount } = useAlerts();
+
+  useKeyboard({
+    onRefresh:       refetch,
+    onToggleDark:    () => setDarkMode((v) => !v),
+    onShowShortcuts: () => setShowShortcuts(true),
+  });
 
   const handleMetricsUpdate = useCallback((opts: {
     lastUpdated: string | null;
@@ -49,11 +63,8 @@ export default function App() {
     setRefetch(() => opts.refetch);
   }, []);
 
-  // Filtros do Layout são meramente para passar ao Header para exportação
-  const [layoutFilters] = useState<Filters>(DEFAULT_FILTERS);
-
   return (
-    <BrowserRouter>
+    <>
       <Routes>
         <Route
           path="/*"
@@ -65,6 +76,7 @@ export default function App() {
               onRefresh={refetch}
               darkMode={darkMode}
               onToggleDark={() => setDarkMode((v) => !v)}
+              alertCount={recentCount}
             />
           }
         >
@@ -72,11 +84,26 @@ export default function App() {
             index
             element={<Dashboard onMetricsUpdate={handleMetricsUpdate} />}
           />
-          <Route path="relatorios"  element={<Relatorios />}  />
-          <Route path="exportar"    element={<Exportar />}   />
-          <Route path="lancamentos" element={<Lancamentos />} />
+          <Route path="relatorios"    element={<Relatorios />}   />
+          <Route path="exportar"      element={<Exportar />}     />
+          <Route path="lancamentos"   element={<Lancamentos />}  />
+          <Route path="metas"         element={<Metas />}        />
+          <Route path="alertas"       element={<Alertas />}      />
+          <Route path="configuracoes" element={<Configuracoes />}/>
         </Route>
       </Routes>
+
+      {showShortcuts && (
+        <KeyboardShortcutsModal onClose={() => setShowShortcuts(false)} />
+      )}
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
     </BrowserRouter>
   );
 }

@@ -69,3 +69,13 @@ export async function getRealtime(_req: Request, res: Response, next: NextFuncti
     next(err);
   }
 }
+
+// GET /api/metrics/heatmap
+export async function getHeatmap(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await metricsService.getHeatmap();
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}

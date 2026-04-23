@@ -225,3 +225,21 @@ export async function getRealtimeData(): Promise<RealtimePoint[]> {
   }));
 }
 
+// ─── Heatmap — total por dia (últimos 12 meses) ─────────────
+
+export async function getHeatmap(): Promise<{ date: string; total: number }[]> {
+  const [rows] = await pool.execute<mysql.RowDataPacket[]>(
+    `SELECT
+       DATE_FORMAT(date, '%Y-%m-%d') AS date,
+       SUM(total_value)              AS total
+     FROM daily_summary
+     WHERE date >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)
+     GROUP BY date
+     ORDER BY date ASC`
+  );
+  return rows.map((r) => ({
+    date:  r.date  as string,
+    total: Number(r.total),
+  }));
+}
+

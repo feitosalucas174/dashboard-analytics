@@ -6,21 +6,28 @@ import {
   BarChart3,
   X,
   Upload,
+  Target,
+  Bell,
+  Settings,
 } from 'lucide-react';
 
 interface SidebarProps {
-  open:    boolean;
-  onClose: () => void;
+  open:        boolean;
+  onClose:     () => void;
+  alertCount?: number;
 }
 
 const NAV_ITEMS = [
-  { to: '/',            icon: LayoutDashboard, label: 'Dashboard'   },
-  { to: '/relatorios',  icon: FileText,        label: 'Relatórios'  },
-  { to: '/exportar',    icon: Download,        label: 'Exportar'    },
-  { to: '/lancamentos', icon: Upload,          label: 'Lançamentos', badge: 'MOCK' },
+  { to: '/',              icon: LayoutDashboard, label: 'Dashboard'     },
+  { to: '/relatorios',    icon: FileText,        label: 'Relatórios'    },
+  { to: '/exportar',      icon: Download,        label: 'Exportar'      },
+  { to: '/lancamentos',   icon: Upload,          label: 'Lançamentos',  staticBadge: 'MOCK' },
+  { to: '/metas',         icon: Target,          label: 'Metas'         },
+  { to: '/alertas',       icon: Bell,            label: 'Alertas',      alertBadge: true },
+  { to: '/configuracoes', icon: Settings,        label: 'Configurações' },
 ];
 
-export default function Sidebar({ open, onClose }: SidebarProps) {
+export default function Sidebar({ open, onClose, alertCount = 0 }: SidebarProps) {
   return (
     <>
       {/* Overlay mobile */}
@@ -59,7 +66,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
         {/* Navegação */}
         <nav className="p-4 space-y-1">
-          {NAV_ITEMS.map(({ to, icon: Icon, label, badge }) => (
+          {NAV_ITEMS.map(({ to, icon: Icon, label, staticBadge, alertBadge }) => (
             <NavLink
               key={to}
               to={to}
@@ -76,9 +83,18 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             >
               <Icon className="w-5 h-5 flex-shrink-0" />
               <span className="flex-1">{label}</span>
-              {badge && (
+
+              {/* Badge estático (MOCK) */}
+              {staticBadge && (
                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 tracking-wide">
-                  {badge}
+                  {staticBadge}
+                </span>
+              )}
+
+              {/* Badge dinâmico de alertas */}
+              {alertBadge && alertCount > 0 && (
+                <span className="min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-bold rounded-full bg-red-500 text-white">
+                  {alertCount > 99 ? '99+' : alertCount}
                 </span>
               )}
             </NavLink>

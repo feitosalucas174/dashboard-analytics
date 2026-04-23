@@ -55,6 +55,10 @@ export const metricsApi = {
   getRealtime: () =>
     api.get<{ success: boolean; data: unknown[]; timestamp: string }>('/api/metrics/realtime')
        .then((r) => r.data),
+
+  getHeatmap: () =>
+    api.get<{ success: boolean; data: { date: string; total: number }[] }>('/api/metrics/heatmap')
+       .then((r) => r.data.data),
 };
 
 // ─── Relatórios ────────────────────────────────────────────

@@ -252,7 +252,7 @@ function buildSummarySheet(
   byCategory: CategoryDistribution[]
 ) {
   const ws = wb.addWorksheet('Resumo', {
-    tabColor: { argb: `FF${BRAND}` },
+    properties: { tabColor: { argb: `FF${BRAND}` } },
     views: [{ showGridLines: false }],
   });
   ws.columns = [
@@ -312,7 +312,7 @@ function buildSummarySheet(
 
 function buildCategorySheet(wb: ExcelJS.Workbook, byCategory: CategoryDistribution[]) {
   const ws = wb.addWorksheet('Por Categoria', {
-    tabColor: { argb: 'FFF59E0B' },
+    properties: { tabColor: { argb: 'FFF59E0B' } },
     views: [{ state: 'frozen', ySplit: 3, showGridLines: false }],
   });
   ws.columns = [
@@ -375,7 +375,7 @@ function buildTimelineSheet(
   );
 
   const ws = wb.addWorksheet('Timeline', {
-    tabColor: { argb: 'FF10B981' },
+    properties: { tabColor: { argb: 'FF10B981' } },
     views: [{ state: 'frozen', xSplit: 1, ySplit: 2, showGridLines: false }],
   });
 
@@ -415,7 +415,7 @@ function buildTimelineSheet(
 
 function buildComparisonSheet(wb: ExcelJS.Workbook, comparison: ExportData['comparison']) {
   const ws = wb.addWorksheet('Comparação', {
-    tabColor: { argb: 'FFEF4444' },
+    properties: { tabColor: { argb: 'FFEF4444' } },
     views: [{ state: 'frozen', ySplit: 2, showGridLines: false }],
   });
 
@@ -471,7 +471,7 @@ function buildFullDataSheet(
   catColorMap: Map<string, string>
 ) {
   const ws = wb.addWorksheet('Dados Completos', {
-    tabColor: { argb: 'FF8B5CF6' },
+    properties: { tabColor: { argb: 'FF8B5CF6' } },
     views: [{ state: 'frozen', ySplit: 2, showGridLines: false }],
   });
 

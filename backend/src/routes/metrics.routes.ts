@@ -8,5 +8,6 @@ router.get('/timeline',    ctrl.getTimeline);
 router.get('/distribution',ctrl.getDistribution);
 router.get('/comparison',  ctrl.getComparison);
 router.get('/realtime',    ctrl.getRealtime);
+router.get('/heatmap',     ctrl.getHeatmap);
 
 export default router;

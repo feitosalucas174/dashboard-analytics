@@ -164,7 +164,8 @@ async function downloadTemplate() {
   });
 
   // Validação de lista para coluna Categoria (B2:B1000)
-  ws.dataValidations.add('B2:B1000', {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (ws as any).dataValidations.add('B2:B1000', {
     type: 'list',
     allowBlank: false,
     formulae: ['"Vendas,Marketing,Operações,Financeiro,RH"'],
@@ -175,7 +176,7 @@ async function downloadTemplate() {
 
   // ── Aba 2: Instruções ───────────────────────────────────
   const wsInfo = wb.addWorksheet('Instruções', {
-    tabColor: { argb: 'FFF59E0B' },
+    properties: { tabColor: { argb: 'FFF59E0B' } },
     views: [{ showGridLines: false }],
   });
   wsInfo.columns = [{ width: 60 }, { width: 30 }];

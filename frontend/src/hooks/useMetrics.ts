@@ -29,9 +29,7 @@ interface TableParams {
   search:    string;
 }
 
-const REFRESH_INTERVAL = 30_000;
-
-export function useMetrics(filters: Filters, tableParams: TableParams) {
+export function useMetrics(filters: Filters, tableParams: TableParams, refreshInterval = 30_000) {
   const [state, setState] = useState<MetricsState>({
     kpis: null, timeline: null, distribution: null,
     comparison: null, table: null,
@@ -88,11 +86,12 @@ export function useMetrics(filters: Filters, tableParams: TableParams) {
   }, [fetchAll]);
 
   useEffect(() => {
-    intervalRef.current = setInterval(fetchAll, REFRESH_INTERVAL);
+    if (refreshInterval === 0) return;
+    intervalRef.current = setInterval(fetchAll, refreshInterval);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [fetchAll]);
+  }, [fetchAll, refreshInterval]);
 
   return { ...state, refetch: fetchAll };
 }

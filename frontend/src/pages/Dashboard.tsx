@@ -8,9 +8,12 @@ import ChartCard from '../components/charts/ChartCard';
 import LineChart from '../components/charts/LineChart';
 import BarChart  from '../components/charts/BarChart';
 import PieChart  from '../components/charts/PieChart';
+import Heatmap   from '../components/charts/Heatmap';
 import DataTable from '../components/table/DataTable';
 import { useFilters }  from '../hooks/useFilters';
 import { useMetrics }  from '../hooks/useMetrics';
+import { useSettings } from '../hooks/useSettings';
+import { metricsApi }  from '../services/api';
 import { formatCurrency } from '../utils/formatters';
 import type { SortConfig } from '../types';
 
@@ -20,14 +23,13 @@ interface DashboardProps {
 
 export default function Dashboard({ onMetricsUpdate }: DashboardProps) {
   const { filters, pendingFilters, applyFilters, clearFilters, setPreset, setDateRange, toggleCategory } = useFilters();
+  const { settings } = useSettings();
 
-  const [tablePage, setTablePage]   = useState(1);
-  const [tableLimit, setTableLimit] = useState(10);
-  const [tableSort, setTableSort]   = useState<SortConfig>({ column: 'date', direction: 'DESC' });
+  const [tablePage, setTablePage]     = useState(1);
+  const [tableLimit, setTableLimit]   = useState(10);
+  const [tableSort, setTableSort]     = useState<SortConfig>({ column: 'date', direction: 'DESC' });
   const [tableSearch, setTableSearch] = useState('');
 
-  // useMemo garante referência estável — sem isso o useCallback do useMetrics
-  // recria fetchAll a cada render, causando loop infinito de requisições
   const tableParams = useMemo(() => ({
     page:      tablePage,
     limit:     tableLimit,
@@ -37,12 +39,16 @@ export default function Dashboard({ onMetricsUpdate }: DashboardProps) {
   }), [tablePage, tableLimit, tableSort.column, tableSort.direction, tableSearch]);
 
   const { kpis, timeline, distribution, comparison, table, loading, lastUpdated, refetch } =
-    useMetrics(filters, tableParams);
+    useMetrics(filters, tableParams, settings.refreshInterval);
 
-  // Sincroniza lastUpdated e loading com o Header via App.tsx
+  // Heatmap — busca anual independente dos filtros
+  const [heatmapData, setHeatmapData] = useState<{ date: string; total: number }[]>([]);
+  useEffect(() => {
+    metricsApi.getHeatmap().then(setHeatmapData).catch(() => {});
+  }, []);
+
   useEffect(() => {
     onMetricsUpdate({ lastUpdated, loading, refetch });
-  // onMetricsUpdate é useCallback estável; refetch muda só quando fetchAll muda
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastUpdated, loading]);
 
@@ -153,6 +159,7 @@ export default function Dashboard({ onMetricsUpdate }: DashboardProps) {
           subtitle="Totais e participação"
           loading={loading && !distribution}
           isEmpty={!loading && (distribution?.length ?? 0) === 0}
+          expandable={false}
         >
           {distribution && (
             <div className="space-y-2 pt-1">
@@ -182,6 +189,19 @@ export default function Dashboard({ onMetricsUpdate }: DashboardProps) {
             </div>
           )}
         </ChartCard>
+      </div>
+
+      {/* Heatmap de atividade */}
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Heatmap de Atividade</h3>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+            Volume financeiro diário nos últimos 12 meses
+          </p>
+        </div>
+        <div className="overflow-x-auto pb-1">
+          <Heatmap data={heatmapData} />
+        </div>
       </div>
 
       {/* Tabela detalhada */}
