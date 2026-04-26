@@ -1,4 +1,3 @@
-import type mysql from 'mysql2/promise';
 import pool from '../database/connection';
 import type {
   KPIData,
@@ -12,7 +11,7 @@ import type {
 // ─── Helpers ───────────────────────────────────────────────
 
 function defaultDates(filters: MetricFilters) {
-  const endDate   = filters.endDate   || new Date().toISOString().split('T')[0];
+  const endDate   = filters.endDate || new Date().toISOString().split('T')[0];
   const startDate = filters.startDate || (() => {
     const d = new Date();
     d.setDate(d.getDate() - 30);
@@ -21,7 +20,6 @@ function defaultDates(filters: MetricFilters) {
   return { startDate, endDate };
 }
 
-// Calcula dias entre duas datas ISO
 function daysBetween(a: string, b: string): number {
   return Math.max(
     1,
@@ -35,7 +33,6 @@ export async function getKPIs(filters: MetricFilters): Promise<KPIData> {
   const { startDate, endDate } = defaultDates(filters);
   const periodDays = daysBetween(startDate, endDate);
 
-  // Data do período anterior (mesma duração)
   const prevEnd = new Date(startDate);
   prevEnd.setDate(prevEnd.getDate() - 1);
   const prevStart = new Date(prevEnd);
@@ -43,42 +40,36 @@ export async function getKPIs(filters: MetricFilters): Promise<KPIData> {
   const prevStartStr = prevStart.toISOString().split('T')[0];
   const prevEndStr   = prevEnd.toISOString().split('T')[0];
 
-  const categoryCondition = filters.category
-    ? 'AND c.name = ?'
-    : '';
-  const params = filters.category
-    ? [startDate, endDate, filters.category]
-    : [startDate, endDate];
-  const prevParams = filters.category
-    ? [prevStartStr, prevEndStr, filters.category]
-    : [prevStartStr, prevEndStr];
+  const hasCat = !!filters.category;
+  const catCondition = hasCat ? 'AND c.name = $3' : '';
 
-  // Período atual
-  const [currentRows] = await pool.execute<mysql.RowDataPacket[]>(
+  const curParams  = hasCat ? [startDate, endDate, filters.category] : [startDate, endDate];
+  const prevParams = hasCat ? [prevStartStr, prevEndStr, filters.category] : [prevStartStr, prevEndStr];
+
+  const curResult = await pool.query(
     `SELECT
        COALESCE(SUM(m.value), 0) AS total,
        COALESCE(AVG(m.value), 0) AS avg_val,
        COALESCE(MAX(m.value), 0) AS max_val
      FROM metrics m
      JOIN categories c ON c.id = m.category_id
-     WHERE m.date BETWEEN ? AND ?
-     ${categoryCondition}`,
-    params
+     WHERE m.date BETWEEN $1 AND $2
+     ${catCondition}`,
+    curParams
   );
 
-  // Período anterior (para variação %)
-  const [prevRows] = await pool.execute<mysql.RowDataPacket[]>(
+  const prevResult = await pool.query(
     `SELECT COALESCE(SUM(m.value), 0) AS total
      FROM metrics m
      JOIN categories c ON c.id = m.category_id
-     WHERE m.date BETWEEN ? AND ?
-     ${categoryCondition}`,
+     WHERE m.date BETWEEN $1 AND $2
+     ${catCondition}`,
     prevParams
   );
 
-  const current = currentRows[0];
-  const prevTotal = Number(prevRows[0]?.total ?? 0);
-  const curTotal  = Number(current?.total ?? 0);
+  const cur      = curResult.rows[0];
+  const prevTotal = Number(prevResult.rows[0]?.total ?? 0);
+  const curTotal  = Number(cur?.total ?? 0);
 
   let variationPercent = 0;
   if (prevTotal > 0) {
@@ -87,44 +78,42 @@ export async function getKPIs(filters: MetricFilters): Promise<KPIData> {
 
   return {
     total:               curTotal,
-    daily_average:       Number(current?.avg_val ?? 0),
-    max_value:           Number(current?.max_val ?? 0),
+    daily_average:       Number(cur?.avg_val ?? 0),
+    max_value:           Number(cur?.max_val ?? 0),
     variation_percent:   Math.round(variationPercent * 100) / 100,
     variation_direction: variationPercent > 0 ? 'up' : variationPercent < 0 ? 'down' : 'neutral',
     period_days:         periodDays,
   };
 }
 
-// ─── Timeline (gráfico de linhas) ──────────────────────────
+// ─── Timeline ──────────────────────────────────────────────
 
 export async function getTimeline(filters: MetricFilters): Promise<TimelinePoint[]> {
   const { startDate, endDate } = defaultDates(filters);
 
-  const categoryCondition = filters.category ? 'AND c.name = ?' : '';
+  const hasCat = !!filters.category;
+  const catCondition = hasCat ? 'AND c.name = $3' : '';
   const params: unknown[] = [startDate, endDate];
-  if (filters.category) params.push(filters.category);
+  if (hasCat) params.push(filters.category);
 
-  const [rows] = await pool.execute<mysql.RowDataPacket[]>(
+  const { rows } = await pool.query(
     `SELECT
-       DATE_FORMAT(ds.date, '%Y-%m-%d') AS date,
+       TO_CHAR(ds.date, 'YYYY-MM-DD') AS date,
        c.name  AS category,
        c.color AS color,
        SUM(ds.total_value) AS total
      FROM daily_summary ds
      JOIN categories c ON c.id = ds.category_id
-     WHERE ds.date BETWEEN ? AND ?
-     ${categoryCondition}
+     WHERE ds.date BETWEEN $1 AND $2
+     ${catCondition}
      GROUP BY ds.date, c.name, c.color
      ORDER BY ds.date ASC`,
     params
   );
 
-  // Pivota: { date, Vendas: 123, Marketing: 456, ... }
   const map = new Map<string, TimelinePoint>();
   for (const row of rows) {
-    if (!map.has(row.date)) {
-      map.set(row.date, { date: row.date });
-    }
+    if (!map.has(row.date)) map.set(row.date, { date: row.date });
     const point = map.get(row.date)!;
     point[row.category as string] = Number(row.total);
     point[`${row.category as string}_color`] = row.color as string;
@@ -132,14 +121,14 @@ export async function getTimeline(filters: MetricFilters): Promise<TimelinePoint
   return Array.from(map.values());
 }
 
-// ─── Distribuição por categoria (gráfico de pizza) ─────────
+// ─── Distribuição por categoria ─────────────────────────────
 
 export async function getCategoryDistribution(
   filters: MetricFilters
 ): Promise<CategoryDistribution[]> {
   const { startDate, endDate } = defaultDates(filters);
 
-  const [rows] = await pool.execute<mysql.RowDataPacket[]>(
+  const { rows } = await pool.query(
     `SELECT
        c.name  AS category,
        c.color AS color,
@@ -147,7 +136,7 @@ export async function getCategoryDistribution(
        COUNT(m.id)  AS count
      FROM metrics m
      JOIN categories c ON c.id = m.category_id
-     WHERE m.date BETWEEN ? AND ?
+     WHERE m.date BETWEEN $1 AND $2
      GROUP BY c.name, c.color
      ORDER BY total DESC`,
     [startDate, endDate]
@@ -162,18 +151,18 @@ export async function getCategoryDistribution(
     percentage: grandTotal > 0
       ? Math.round((Number(r.total) / grandTotal) * 10000) / 100
       : 0,
-    count:      Number(r.count),
+    count: Number(r.count),
   }));
 }
 
-// ─── Comparação entre categorias (gráfico de barras) ───────
+// ─── Comparação entre categorias ───────────────────────────
 
 export async function getComparison(
   filters: MetricFilters
 ): Promise<ComparisonPoint[]> {
   const { startDate, endDate } = defaultDates(filters);
 
-  const [rows] = await pool.execute<mysql.RowDataPacket[]>(
+  const { rows } = await pool.query(
     `SELECT
        c.name  AS category,
        c.color AS color,
@@ -184,7 +173,7 @@ export async function getComparison(
        COUNT(m.id)  AS count
      FROM metrics m
      JOIN categories c ON c.id = m.category_id
-     WHERE m.date BETWEEN ? AND ?
+     WHERE m.date BETWEEN $1 AND $2
      GROUP BY c.name, c.color
      ORDER BY total DESC`,
     [startDate, endDate]
@@ -204,8 +193,7 @@ export async function getComparison(
 // ─── Dados de tempo real simulados ─────────────────────────
 
 export async function getRealtimeData(): Promise<RealtimePoint[]> {
-  // Busca os últimos 60 registros do banco (simula 60 minutos)
-  const [rows] = await pool.execute<mysql.RowDataPacket[]>(
+  const { rows } = await pool.query(
     `SELECT
        m.date AS date,
        m.value,
@@ -216,7 +204,6 @@ export async function getRealtimeData(): Promise<RealtimePoint[]> {
      LIMIT 60`
   );
 
-  // Adiciona timestamps simulados retroativos (de 60 em 60 segundos)
   const now = Date.now();
   return rows.map((r, i) => ({
     timestamp: new Date(now - (60 - i) * 60_000).toISOString(),
@@ -228,12 +215,12 @@ export async function getRealtimeData(): Promise<RealtimePoint[]> {
 // ─── Heatmap — total por dia (últimos 12 meses) ─────────────
 
 export async function getHeatmap(): Promise<{ date: string; total: number }[]> {
-  const [rows] = await pool.execute<mysql.RowDataPacket[]>(
+  const { rows } = await pool.query(
     `SELECT
-       DATE_FORMAT(date, '%Y-%m-%d') AS date,
-       SUM(total_value)              AS total
+       TO_CHAR(date, 'YYYY-MM-DD') AS date,
+       SUM(total_value)            AS total
      FROM daily_summary
-     WHERE date >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)
+     WHERE date >= CURRENT_DATE - INTERVAL '1 year'
      GROUP BY date
      ORDER BY date ASC`
   );
@@ -242,4 +229,3 @@ export async function getHeatmap(): Promise<{ date: string; total: number }[]> {
     total: Number(r.total),
   }));
 }
-

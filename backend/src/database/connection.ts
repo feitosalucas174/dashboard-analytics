@@ -1,29 +1,30 @@
-import mysql from 'mysql2/promise';
+import { Pool } from 'pg';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Pool de conexões reutilizáveis com o MySQL
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  port: Number(process.env.DB_PORT) || 3306,
-  user: process.env.DB_USER || 'dashboard_user',
-  password: process.env.DB_PASSWORD || 'dashboard_pass',
-  database: process.env.DB_NAME || 'dashboard_analytics',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  timezone: '+00:00',
-});
+// Suporta DATABASE_URL (Neon, Render, Supabase) ou variáveis individuais (local)
+const pool = new Pool(
+  process.env.DATABASE_URL
+    ? {
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false },
+      }
+    : {
+        host:     process.env.DB_HOST     || 'localhost',
+        port:     Number(process.env.DB_PORT) || 5432,
+        user:     process.env.DB_USER     || 'postgres',
+        password: process.env.DB_PASSWORD || '',
+        database: process.env.DB_NAME     || 'dashboard_analytics',
+      }
+);
 
-// Testa a conexão ao inicializar
 export async function testConnection(): Promise<void> {
   try {
-    const connection = await pool.getConnection();
-    console.log('✅ Conexão com MySQL estabelecida com sucesso');
-    connection.release();
+    await pool.query('SELECT 1');
+    console.log('✅ Conexão com PostgreSQL estabelecida com sucesso');
   } catch (error) {
-    console.error('❌ Falha ao conectar ao MySQL:', error);
+    console.error('❌ Falha ao conectar ao PostgreSQL:', error);
     throw error;
   }
 }
